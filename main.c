@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <time.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 
@@ -12,8 +13,9 @@
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
 
-#define PIECE_X_MAX_SIZE 4
-#define PIECE_Y_MAX_SIZE 6
+#define PIECE_X_MAX_SIZE 2
+#define PIECE_Y_MAX_SIZE 4
+#define NB_POSSIBLE_PIECES 6
 
 #define SHADOW_SIZE 4
 
@@ -25,7 +27,26 @@ enum world_content
 
 static enum world_content world[SCREEN_X_SIZE][SCREEN_Y_SIZE];
 
-static enum world_content possibles_pieces[4][PIECE_X_MAX_SIZE][PIECE_Y_MAX_SIZE];
+static enum world_content possible_pieces[NB_POSSIBLE_PIECES][PIECE_X_MAX_SIZE][PIECE_Y_MAX_SIZE]=
+{
+    {  { background, tile      , tile      , tile       },
+       { background, tile      , background, background } },
+
+    {  { background, background, tile      , tile       },
+       { background, tile      , tile      , background } },
+
+    {  { tile      , tile      , tile      , background },
+       { background, background, tile      , background } },
+
+    {  { tile      , tile      , background, background },
+       { background, tile      , tile      , background } },
+
+    {  { tile      , tile      , tile      , tile       },
+       { background, background, background, background } },
+
+    {  { background, tile      , tile      , background },
+       { background, tile      , tile      , background } },
+};
 
 static int actual_piece, actual_rotation, actual_x, actual_y;
 
@@ -41,11 +62,294 @@ void init_world()
 {
     for(int y = 0; y < SCREEN_Y_SIZE; y++)
     {
+#ifdef DEBUG_CHECK_LINES
         if(y == SCREEN_Y_SIZE - 1)
             init_line(y, tile);
+        else if(y == SCREEN_Y_SIZE - 2)
+        {
+            for(int x = 0; x < SCREEN_X_SIZE; x++)
+            {
+                world[x][y] = x % 2;
+            }
+        }
         else
             init_line(y, background);
+#else
+        init_line(y, background);
+#endif
     }
+}
+
+void fix_piece_in_world()
+{
+    switch(actual_rotation)
+    {
+        case 0 ://0°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + x + 1 - PIECE_X_MAX_SIZE / 2, world_y = actual_y + y + 1 - PIECE_Y_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = possible_pieces[actual_piece][x][y];
+                            if(content != background)
+                                world[world_x][world_y] = content;
+                        }
+                    }
+                }
+            }
+            break;
+        case 90 ://90°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x - y + PIECE_Y_MAX_SIZE / 2, world_y = actual_y + x + 1 - PIECE_X_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = possible_pieces[actual_piece][x][y];
+                            if(content != background)
+                                world[world_x][world_y] = content;
+                        }
+                    }
+                }
+            }
+            break;
+        case 180://180°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + PIECE_X_MAX_SIZE / 2 - x, world_y = actual_y + PIECE_Y_MAX_SIZE / 2 - y;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = possible_pieces[actual_piece][x][y];
+                            if(content != background)
+                                world[world_x][world_y] = content;
+                        }
+                    }
+                }
+            }
+            break;
+        case 270://270°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + y + 1 - PIECE_Y_MAX_SIZE / 2, world_y = actual_y + PIECE_X_MAX_SIZE / 2 - x;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = possible_pieces[actual_piece][x][y];
+                            if(content != background)
+                                world[world_x][world_y] = content;
+                        }
+                    }
+                }
+            }
+            break;
+    }
+}
+
+
+int check_if_piece_has_reached_ground(void)
+{
+    switch(actual_rotation)
+    {
+        case 0 ://0°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + x + 1 - PIECE_X_MAX_SIZE / 2, world_y = actual_y + y + 1 - PIECE_Y_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0)
+                        {
+                            if(possible_pieces[actual_piece][x][y] != background)
+                            {
+                                if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
+                                    return 1;
+                                if(world[world_x][world_y] != background)//Reach other already put pieces
+                                    return 1;
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        case 90 ://90°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x - y + PIECE_Y_MAX_SIZE / 2, world_y = actual_y + x + 1 - PIECE_X_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0)
+                        {
+                            if(possible_pieces[actual_piece][x][y] != background)
+                            {
+                                if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
+                                    return 1;
+                                if(world[world_x][world_y] != background)//Reach other already put pieces
+                                    return 1;
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        case 180://180°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + PIECE_X_MAX_SIZE / 2 - x, world_y = actual_y + PIECE_Y_MAX_SIZE / 2 - y;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0)
+                        {
+                            if(possible_pieces[actual_piece][x][y] != background)
+                            {
+                                if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
+                                    return 1;
+                                if(world[world_x][world_y] != background)//Reach other already put pieces
+                                    return 1;
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        case 270://270°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + y + 1 - PIECE_Y_MAX_SIZE / 2, world_y = actual_y + PIECE_X_MAX_SIZE / 2 - x;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0)
+                        {
+                            if(possible_pieces[actual_piece][x][y] != background)
+                            {
+                                if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
+                                    return 1;
+                                if(world[world_x][world_y] != background)//Reach other already put pieces
+                                    return 1;
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+    }
+    return 0;
+}
+
+
+void draw_tile(SDL_Renderer *renderer, int x, int y, enum world_content content);
+
+void _draw_piece(SDL_Renderer *renderer, enum world_content shape[PIECE_X_MAX_SIZE][PIECE_Y_MAX_SIZE])
+{
+    switch(actual_rotation)
+    {
+        case 0 ://0°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + x + 1 - PIECE_X_MAX_SIZE / 2, world_y = actual_y + y + 1 - PIECE_Y_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = world[world_x][world_y];
+                            if(shape != NULL && shape[x][y] != background)
+                                content = shape[x][y];
+                            draw_tile(renderer, world_x, world_y, content);
+                        }
+                    }
+                }
+            }
+            break;
+        case 90 ://90°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x - y + PIECE_Y_MAX_SIZE / 2, world_y = actual_y + x + 1 - PIECE_X_MAX_SIZE / 2;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = world[world_x][world_y];
+                            if(shape != NULL && shape[x][y] != background)
+                                content = shape[x][y];
+                            draw_tile(renderer, world_x, world_y, content);
+                        }
+                    }
+                }
+            }
+            break;
+        case 180://180°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + PIECE_X_MAX_SIZE / 2 - x, world_y = actual_y + PIECE_Y_MAX_SIZE / 2 - y;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = world[world_x][world_y];
+                            if(shape != NULL && shape[x][y] != background)
+                                content = shape[x][y];
+                            draw_tile(renderer, world_x, world_y, content);
+                        }
+                    }
+                }
+            }
+            break;
+        case 270://270°
+            for(int x = 0; x < PIECE_X_MAX_SIZE; x++)
+            {
+                for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
+                {
+                    int world_x = actual_x + y + 1 - PIECE_Y_MAX_SIZE / 2, world_y = actual_y + PIECE_X_MAX_SIZE / 2 - x;
+                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    {
+                        if(world_y >= 0 && world_y < SCREEN_Y_SIZE)
+                        {
+                            enum world_content content = world[world_x][world_y];
+                            if(shape != NULL && shape[x][y] != background)
+                                content = shape[x][y];
+                            draw_tile(renderer, world_x, world_y, content);
+                        }
+                    }
+                }
+            }
+            break;
+    }
+}
+
+void draw_piece(SDL_Renderer *renderer)
+{
+    _draw_piece(renderer, possible_pieces[actual_piece]);
+}
+
+void erase_piece(SDL_Renderer *renderer)
+{
+    _draw_piece(renderer, NULL);
 }
 
 void draw_tile(SDL_Renderer *renderer, int x, int y, enum world_content content)
@@ -113,27 +417,28 @@ void move_line_and_redraw(SDL_Renderer *r, int old_y, int new_y)
 {
     for(int x = 0; x < SCREEN_X_SIZE; x++)
     {
-        world[x][new_y] = world[x][old_y];
-        draw_tile(r, x, new_y, world[x][new_y]);
-        world[x][old_y] = background;
-        draw_tile(r, x, new_y, background);
+        enum world_content content = background;
+        if(old_y >= 0)
+            content = world[x][old_y];
+        world[x][new_y] = content;
+        draw_tile(r, x, new_y, content);
     }
 }
 
 int check_line_and_redraw(SDL_Renderer *r, int y)
 {
-    printf("check line %d\n", y);
+//    printf("check line %d\n", y);
     for(int x = 0; x < SCREEN_X_SIZE; x++)
     {
         if(world[x][y] == background)
         {
-            printf("tile %d/%d is background\n", x, y);
+//            printf("tile %d/%d is background\n", x, y);
             return 0;
         }
     }
     do
     {
-        printf("move line %d to %d\n", y, y - 1);
+//        printf("move line %d to %d\n", y, y - 1);
         move_line_and_redraw(r, y - 1, y);
         y--;
     }
@@ -162,6 +467,8 @@ void draw_world(SDL_Renderer *r)
 
 int main( int argc, char *argv[ ] )
 {
+    int actual_rotation_speed, delay;
+    srand(time(NULL));//Init randome seed.
     SDL_Window *window;
     if( SDL_Init( SDL_INIT_VIDEO ) == -1 )
     {
@@ -185,9 +492,17 @@ int main( int argc, char *argv[ ] )
     draw_world(renderer);
     // Main loop
     SDL_Event event;
+    actual_piece = 5;//rand() % 6;
+    actual_rotation = 0;
+    actual_rotation_speed = 90;
+    actual_x = SCREEN_X_SIZE / 2;
+    actual_y = 0;
+    delay = 2000;
+    uint32_t old_ticks = SDL_GetTicks();
     while(1)
     {
-       // Check for messages
+        erase_piece(renderer);
+        // Check for messages
         if (SDL_PollEvent(&event))
         {
             // Check for the quit message
@@ -203,16 +518,30 @@ int main( int argc, char *argv[ ] )
                         switch(event.key.keysym.sym)
                         {
                             case SDLK_DOWN:
-//                                yspeed = (event.type == SDL_KEYDOWN ? SPEED_RATE : 0);
+                                if(event.type == SDL_KEYDOWN)
+                                    delay = 20;
+                                else
+                                    delay = 2000;
                                 break;
                             case SDLK_UP:
-//                                yspeed = (event.type == SDL_KEYDOWN ? -SPEED_RATE : 0);
+                                if(event.type == SDL_KEYDOWN)
+                                {
+                                    actual_rotation += (event.type == SDL_KEYDOWN ? actual_rotation_speed : 0);
+                                    if(actual_rotation == 360)
+                                        actual_rotation = 0;
+                                    actual_rotation_speed = 0;
+                                }
+                                else
+                                {
+                                    actual_rotation_speed = 90;
+                                }
+                                printf("actual_rotation = %d\n", actual_rotation);
                                 break;
                             case SDLK_RIGHT:
-//                                xspeed = (event.type == SDL_KEYDOWN ? SPEED_RATE : 0);
+                                actual_x += (event.type == SDL_KEYDOWN ? 1 : 0);
                                 break;
                             case SDLK_LEFT:
-//                                xspeed = (event.type == SDL_KEYDOWN ? -SPEED_RATE : 0);
+                                actual_x -= (event.type == SDL_KEYDOWN ? 1 : 0);
                                 break;
                             case SDLK_ESCAPE:
                                 SDL_Quit();
@@ -222,12 +551,28 @@ int main( int argc, char *argv[ ] )
                         break;
             }
         }
-       
+        
+        if(SDL_GetTicks() - old_ticks > delay)
+        {
+            actual_y++;
+            if(check_if_piece_has_reached_ground() == 1)
+            {
+                actual_y--;
+                fix_piece_in_world();
+                draw_piece(renderer);
+                
+                actual_piece = rand() % 6;
+                actual_rotation = 0;
+                actual_x = SCREEN_X_SIZE / 2;
+                actual_y = 0;
+            }
+            old_ticks = SDL_GetTicks();
+        }
+        draw_piece(renderer);
         check_world_and_redraw(renderer);
         
         //Update the display
 	SDL_RenderPresent(renderer);
-        SDL_Delay(200);
         
     }
 
