@@ -160,7 +160,7 @@ void fix_piece_in_world()
 }
 
 
-int check_if_piece_has_reached_ground(void)
+int check_if_piece_has_collision(void)
 {
     switch(actual_rotation)
     {
@@ -170,11 +170,11 @@ int check_if_piece_has_reached_ground(void)
                 for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
                 {
                     int world_x = actual_x + x + 1 - PIECE_X_MAX_SIZE / 2, world_y = actual_y + y + 1 - PIECE_Y_MAX_SIZE / 2;
-                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    if(possible_pieces[actual_piece][x][y] != background)
                     {
-                        if(world_y >= 0)
+                        if(world_x >= 0 && world_x < SCREEN_X_SIZE)
                         {
-                            if(possible_pieces[actual_piece][x][y] != background)
+                            if(world_y >= 0)
                             {
                                 if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
                                     return 1;
@@ -182,6 +182,8 @@ int check_if_piece_has_reached_ground(void)
                                     return 1;
                             }
                         }
+                        else
+                            return 1;
                     }
                 }
             }
@@ -192,11 +194,11 @@ int check_if_piece_has_reached_ground(void)
                 for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
                 {
                     int world_x = actual_x - y + PIECE_Y_MAX_SIZE / 2, world_y = actual_y + x + 1 - PIECE_X_MAX_SIZE / 2;
-                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    if(possible_pieces[actual_piece][x][y] != background)
                     {
-                        if(world_y >= 0)
+                        if(world_x >= 0 && world_x < SCREEN_X_SIZE)
                         {
-                            if(possible_pieces[actual_piece][x][y] != background)
+                            if(world_y >= 0)
                             {
                                 if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
                                     return 1;
@@ -204,6 +206,8 @@ int check_if_piece_has_reached_ground(void)
                                     return 1;
                             }
                         }
+                        else
+                            return 1;
                     }
                 }
             }
@@ -214,11 +218,11 @@ int check_if_piece_has_reached_ground(void)
                 for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
                 {
                     int world_x = actual_x + PIECE_X_MAX_SIZE / 2 - x, world_y = actual_y + PIECE_Y_MAX_SIZE / 2 - y;
-                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    if(possible_pieces[actual_piece][x][y] != background)
                     {
-                        if(world_y >= 0)
+                        if(world_x >= 0 && world_x < SCREEN_X_SIZE)
                         {
-                            if(possible_pieces[actual_piece][x][y] != background)
+                            if(world_y >= 0)
                             {
                                 if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
                                     return 1;
@@ -226,6 +230,8 @@ int check_if_piece_has_reached_ground(void)
                                     return 1;
                             }
                         }
+                        else
+                            return 1;
                     }
                 }
             }
@@ -236,11 +242,11 @@ int check_if_piece_has_reached_ground(void)
                 for(int y = 0; y < PIECE_Y_MAX_SIZE; y++)
                 {
                     int world_x = actual_x + y + 1 - PIECE_Y_MAX_SIZE / 2, world_y = actual_y + PIECE_X_MAX_SIZE / 2 - x;
-                    if(world_x >= 0 && world_x < SCREEN_X_SIZE)
+                    if(possible_pieces[actual_piece][x][y] != background)
                     {
-                        if(world_y >= 0)
+                        if(world_x >= 0 && world_x < SCREEN_X_SIZE)
                         {
-                            if(possible_pieces[actual_piece][x][y] != background)
+                            if(world_y >= 0)
                             {
                                 if(world_y >= SCREEN_Y_SIZE)//Reach floor of level
                                     return 1;
@@ -248,6 +254,8 @@ int check_if_piece_has_reached_ground(void)
                                     return 1;
                             }
                         }
+                        else
+                            return 1;
                     }
                 }
             }
@@ -539,9 +547,13 @@ int main( int argc, char *argv[ ] )
                                 break;
                             case SDLK_RIGHT:
                                 actual_x += (event.type == SDL_KEYDOWN ? 1 : 0);
+                                if(check_if_piece_has_collision() == 1)
+                                    actual_x -= (event.type == SDL_KEYDOWN ? 1 : 0);
                                 break;
                             case SDLK_LEFT:
                                 actual_x -= (event.type == SDL_KEYDOWN ? 1 : 0);
+                                if(check_if_piece_has_collision() == 1)
+                                    actual_x += (event.type == SDL_KEYDOWN ? 1 : 0);
                                 break;
                             case SDLK_ESCAPE:
                                 SDL_Quit();
@@ -555,7 +567,7 @@ int main( int argc, char *argv[ ] )
         if(SDL_GetTicks() - old_ticks > delay)
         {
             actual_y++;
-            if(check_if_piece_has_reached_ground() == 1)
+            if(check_if_piece_has_collision() == 1)
             {
                 actual_y--;
                 fix_piece_in_world();
