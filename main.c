@@ -577,6 +577,12 @@ int main( int argc, char *argv[ ] )
                 actual_rotation = 0;
                 actual_x = SCREEN_X_SIZE / 2;
                 actual_y = 0;
+                if(check_if_piece_has_collision() == 1)
+                {
+                    printf("!!!!!!!!  GAME OVER  !!!!!!!!!!!!!\n");
+                    SDL_Quit();
+                    return EXIT_SUCCESS;// Quit the program
+                }
             }
             old_ticks = SDL_GetTicks();
         }
